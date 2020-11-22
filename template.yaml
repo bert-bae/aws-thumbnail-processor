@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Thumbnail processor
+
+Parameters:
+  LambdaFfmpegLayer:
+    Type: String
+    Default: "arn:aws:lambda:us-west-2:963190016505:layer:ffmpeg:1"
+  ConversionFileType:
+    Type: String
+    Default: jpg
+  ConversionMimeType:
+    Type: String
+    Default: image/jpg
+
+Globals:
+  Function:
+    Runtime: nodejs10.x
+    MemorySize: 256
+    Timeout: 60
+
+Resources:
+  SourceS3Bucket:
+    Type: AWS::S3::Bucket
+
+  ThumbnailUploadS3Bucket:
+    Type: AWS::S3::Bucket
+
+  ThumbnailProcessor:
+    Type: AWS::Serverless::Function
+    Properties:
+      Layers:
+        - !Ref LambdaFfmpegLayer
+      Handler: ./src/lambda.handler
+      Policies:
+        - S3CrudPolicy:
+            BucketName: !Sub "${AWS::StackName}-*"
+      Timeout: 10
+    Environment:
+      Variables:
+        OUTPUT_BUCKET: !Ref ThumbnailUploadS3Bucket
+        EXTENSION: !Sub ".${ConversionFileType}"
+        MIME_TYPE: !Ref ConversionMimeType
+    Events:
+      FileUpload:
+        Type: S3
+        Properties:
+          Bucket: !Ref SourceS3Bucket
+          Events: s3:ObjectCreated:*
+
+  ThumbnailProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: [ThumbnailProcessor]
+    Properties:
+      RetentionInDays: 30
+      LogGroupName: !Sub "/aws/lambda/${ThumbnailProcessor}"
+
+Outputs:
+  SourceBucket:
+    Description: Source bucket name
+    Value: !Ref SourceS3Bucket
+
+  ThumbnailBucket:
+    Description: Thumbnail bucket name
+    Value: !Ref ThumbnailUploadS3Bucket

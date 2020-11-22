@@ -1,0 +1,5 @@
+version=0.1
+[default.deploy.parameters]
+region = "us-west-2"
+stack_name = "aws-thumbnail-processor"
+capabilities = "CAPABILITY_IAM"
